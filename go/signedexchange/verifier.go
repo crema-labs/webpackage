@@ -2,10 +2,13 @@ package signedexchange
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"encoding/asn1"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/big"
 	"net/http"
 	"net/url"
 	"sort"
@@ -313,13 +316,32 @@ func verifySignature(e *Exchange, verificationTime time.Time, fetch CertFetcher,
 		return nil, nil, errors.New("verify: cert-sha256 mismatch")
 	}
 	// Step 7: Signature verification
-	ok, err := verifier.Verify(msg, signature.Sig)
+	var v struct {
+		R, S *big.Int
+	}
+	rest, err := asn1.Unmarshal(signature.Sig, &v)
+	if err != nil {
+		return nil, nil, fmt.Errorf("verifier: failed to ASN.1 decode the signature: %v", err)
+	}
+	if len(rest) > 0 {
+		return nil, nil, errors.New("verifier: extra data at the signature end")
+	}
+
+	ok, err := verifier.VerifySig(msg, v.R, v.S)
 	if err != nil {
 		return nil, nil, err
 	}
 	if !ok {
 		return nil, nil, errors.New("verify: signature verification failed")
 	}
+
+	// adds extra parameters to the exchange
+	e.Msg = msg
+	e.Px = mainCert.Cert.PublicKey.(*ecdsa.PublicKey).X
+	e.Py = mainCert.Cert.PublicKey.(*ecdsa.PublicKey).Y
+	e.R = v.R
+	e.S = v.S
+
 	// Step 8: (version >= 1b3) Response headers must contain Content-Type
 	if e.Version != version.Version1b1 && e.Version != version.Version1b2 {
 		if e.ResponseHeaders.Get("Content-Type") == "" {

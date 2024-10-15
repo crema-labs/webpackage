@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -33,6 +34,20 @@ type Exchange struct {
 
 	// Payload
 	Payload []byte
+
+	// Signed Message
+	Msg []byte
+
+	// Digest
+	Digest []byte
+
+	// PublicKey
+	Px *big.Int
+	Py *big.Int
+
+	// Signature
+	R *big.Int
+	S *big.Int
 }
 
 var (

@@ -63,6 +63,7 @@ func SigningAlgorithmForPrivateKey(pk crypto.PrivateKey, rand io.Reader) (Signin
 
 type Verifier interface {
 	Verify(msg, sig []byte) (bool, error)
+	VerifySig(msg []byte, R, S *big.Int) (bool, error)
 }
 
 type ecdsaVerifier struct {
@@ -83,6 +84,17 @@ func (e *ecdsaVerifier) Verify(msg, sig []byte) (bool, error) {
 	hash := e.hash.New()
 	hash.Write(msg)
 	return ecdsa.Verify(e.pubKey, hash.Sum(nil), v.R, v.S), nil
+}
+
+func (e *ecdsaVerifier) PublicKey() crypto.PublicKey {
+	return e.pubKey
+}
+
+func (e *ecdsaVerifier) VerifySig(msg []byte, R, S *big.Int) (bool, error) {
+
+	hash := e.hash.New()
+	hash.Write(msg)
+	return ecdsa.Verify(e.pubKey, hash.Sum(nil), R, S), nil
 }
 
 func VerifierForPublicKey(k crypto.PublicKey) (Verifier, error) {
